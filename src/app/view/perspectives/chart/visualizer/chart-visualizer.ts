@@ -17,28 +17,110 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import {ElementRef} from '@angular/core';
+
 import {DocumentModel} from '../../../../core/store/documents/document.model';
-import {CreationDateSorter} from '../sorter/creation-date-sorter';
-import {DataSorter} from '../sorter/data-sorter';
 import {CollectionModel} from '../../../../core/store/collections/collection.model';
+import {ChartConfig} from '../../../../core/store/charts/chart.model';
+import {Config, Data, Layout, newPlot, react} from 'plotly.js';
+import {DataChange, PlotMaker} from './plot-maker/plot-maker';
+import {createPlotMakerByType} from './plot-maker/plot-maker-util';
 
-export abstract class ChartVisualizer {
+export class ChartVisualizer {
 
-  protected data = [];
+  private data: Data[] = [];
 
-  protected style = {};
+  private layout: Partial<Layout>;
 
-  protected sorter: DataSorter = new CreationDateSorter();
+  private config: Partial<Config> = this.createConfig();
 
-  constructor(protected chartElement) {
+  private plotMaker: PlotMaker;
+
+  constructor(private chartElement: ElementRef,
+              private writable: boolean,
+              private onValueChanged?: (documentId: string, attributeId: string, value: string) => void) {
   }
 
-  public abstract update(collections: CollectionModel[], documents: DocumentModel[], attributeX: string, attributeY: string);
+  public setData(collections: CollectionModel[], documents: DocumentModel[], config: ChartConfig) {
+    const shouldRefreshPlotMaker = this.shouldRefreshPlotMaker(config);
+    if (shouldRefreshPlotMaker) {
+      this.plotMaker = createPlotMakerByType(config.type, this.chartElement);
+      this.plotMaker.setOnValueChanged((change => this.onValueChanged && this.onValueChanged(change.documentId, change.attributeId, change.value)));
+      this.plotMaker.setOnDataChanged((change) => this.onDataChanged(change));
+    }
 
-  public setSorter(newSorter: DataSorter) {
-    this.sorter = newSorter;
+    const currentConfig = this.plotMaker.currentConfig();
+
+    this.plotMaker.updateData(collections, documents, config);
+    this.data = this.plotMaker.createData();
+
+    if (shouldRefreshPlotMaker || this.shouldRefreshLayout(config, currentConfig)) {
+      this.layout = this.plotMaker.createLayout();
+    }
+    this.incRevisionNumber();
   }
 
-  public abstract showChart();
+  private shouldRefreshPlotMaker(config: ChartConfig) {
+    return !this.plotMaker || this.plotMaker.currentType() !== config.type;
+  }
+
+  private shouldRefreshLayout(newConfig: ChartConfig, currentConfig: ChartConfig) {
+    return !this.plotMaker || !currentConfig
+      || JSON.stringify(newConfig) !== JSON.stringify(currentConfig);
+  }
+
+  public onDataChanged(change: DataChange) {
+    this.data[change.trace][change.axis][change.index] = change.value;
+    this.incRevisionNumber();
+    this.refreshChart();
+  }
+
+  private incRevisionNumber() {
+    const rev = this.layout['datarevision'];
+    this.layout['datarevision'] = rev ? rev + 1 : 1;
+  }
+
+  private createConfig(): Partial<Config> {
+    const config = {};
+    config['responsive'] = true;
+    return config;
+  }
+
+  public createChartAndVisualize() {
+    this.createNewChart();
+    this.refreshDrag();
+    this.chartElement.nativeElement.on('plotly_relayout', () => this.plotMaker.onRelayout());
+  }
+
+  public visualize() {
+    this.refreshChart();
+    this.refreshDrag();
+  }
+
+  private createNewChart() {
+    newPlot(this.chartElement.nativeElement, this.data, this.layout, this.config);
+  }
+
+  private refreshChart() {
+    react(this.chartElement.nativeElement, this.data, this.layout);
+  }
+
+  private refreshDrag() {
+    if (this.writable) {
+      this.plotMaker.initDrag();
+    } else {
+      this.plotMaker.destroyDrag();
+    }
+  }
+
+  public enableWrite() {
+    this.writable = true;
+    this.plotMaker && this.plotMaker.setDragEnabled(true);
+  }
+
+  public disableWrite() {
+    this.writable = false;
+    this.plotMaker && this.plotMaker.setDragEnabled(false);
+  }
 
 }
