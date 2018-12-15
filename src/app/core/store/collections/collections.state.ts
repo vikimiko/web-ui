@@ -26,19 +26,20 @@ import {CollectionModel} from './collection.model';
 
 export interface CollectionsState extends EntityState<CollectionModel> {
   loaded: boolean;
-  collectionNames: string[];
 }
 
 export const collectionsAdapter = createEntityAdapter<CollectionModel>({selectId: collection => collection.id});
 
 export const initialCollectionsState: CollectionsState = collectionsAdapter.getInitialState({
   loaded: false,
-  collectionNames: null,
 });
 
 export const selectCollectionsState = (state: AppState) => state.collections;
 
-export const selectAllCollections = createSelector(selectCollectionsState, collectionsAdapter.getSelectors().selectAll);
+export const selectAllCollections = createSelector(
+  selectCollectionsState,
+  collectionsAdapter.getSelectors().selectAll
+);
 export const selectCollectionsDictionary = createSelector(
   selectCollectionsState,
   collectionsAdapter.getSelectors().selectEntities
@@ -57,17 +58,22 @@ export const selectCollectionByWorkspace = createSelector(
 );
 
 export const selectCollectionById = (id: string) =>
-  createSelector(selectCollectionsDictionary, collectionsDictionary => collectionsDictionary[id]);
+  createSelector(
+    selectCollectionsDictionary,
+    collectionsDictionary => collectionsDictionary[id]
+  );
 
 export const selectCollectionsByIds = (ids: string[]) =>
-  createSelector(selectCollectionsDictionary, collectionsDictionary => ids.map(id => collectionsDictionary[id]));
+  createSelector(
+    selectCollectionsDictionary,
+    collectionsDictionary => ids.map(id => collectionsDictionary[id])
+  );
 
 export const selectCollectionsByLinkType = (linkTypeId: string) =>
-  createSelector(selectCollectionsDictionary, selectLinkTypeById(linkTypeId), (collectionsMap, linkType) => {
-    return linkType.collectionIds.map(id => collectionsMap[id]);
-  });
-
-export const selectCollectionNames = createSelector(
-  selectCollectionsState,
-  (state: CollectionsState) => state.collectionNames
-);
+  createSelector(
+    selectCollectionsDictionary,
+    selectLinkTypeById(linkTypeId),
+    (collectionsMap, linkType) => {
+      return (linkType && linkType.collectionIds.map(id => collectionsMap[id])) || [];
+    }
+  );

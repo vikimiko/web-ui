@@ -23,29 +23,27 @@ import {select, Store} from '@ngrx/store';
 import {I18n} from '@ngx-translate/i18n-polyfill';
 import {Observable, Subscription} from 'rxjs';
 
-import {filter, map, take, withLatestFrom} from 'rxjs/operators';
-import {isNullOrUndefined} from 'util';
-import {Query} from '../../core/dto';
+import {filter, map, take} from 'rxjs/operators';
 import {ResourceType} from '../../core/model/resource-type';
 import {NotificationService} from '../../core/notifications/notification.service';
 import {AppState} from '../../core/store/app.state';
 import {CollectionModel} from '../../core/store/collections/collection.model';
 import {CollectionsAction} from '../../core/store/collections/collections.action';
-import {selectCollectionByWorkspace, selectCollectionNames} from '../../core/store/collections/collections.state';
+import {selectCollectionByWorkspace} from '../../core/store/collections/collections.state';
 import {NavigationAction} from '../../core/store/navigation/navigation.action';
 import {selectPreviousUrl, selectWorkspace} from '../../core/store/navigation/navigation.state';
-import {QueryConverter} from '../../core/store/navigation/query.converter';
+import {convertQueryModelToString} from '../../core/store/navigation/query.converter';
 import {SearchTab} from '../../core/store/navigation/search-tab';
 import {Workspace} from '../../core/store/navigation/workspace.model';
 import {selectAllUsers} from '../../core/store/users/users.state';
 import {Perspective} from '../../view/perspectives/perspective';
+import {Query} from '../../core/store/navigation/query';
 
 @Component({
   templateUrl: './collection-settings.component.html',
 })
 export class CollectionSettingsComponent implements OnInit, OnDestroy {
   public collection: CollectionModel;
-  public collectionNames$: Observable<string[]>;
   public userCount$: Observable<number>;
 
   private workspace: Workspace;
@@ -128,8 +126,8 @@ export class CollectionSettingsComponent implements OnInit, OnDestroy {
   }
 
   public documentsQuery(collectionId: string): string {
-    const query: Query = {collectionIds: [collectionId]};
-    return QueryConverter.toString(query);
+    const query: Query = {stems: [{collectionId: collectionId}]};
+    return convertQueryModelToString(query);
   }
 
   private workspacePath(): string {
@@ -143,34 +141,32 @@ export class CollectionSettingsComponent implements OnInit, OnDestroy {
   }
 
   private subscribeToStore() {
-    this.userCount$ = this.store$.select(selectAllUsers).pipe(map(users => (users ? users.length : 0)));
+    this.userCount$ = this.store$.pipe(
+      select(selectAllUsers),
+      map(users => (users ? users.length : 0))
+    );
 
     const sub1 = this.store$
-      .select(selectWorkspace)
-      .pipe(filter(workspace => !isNullOrUndefined(workspace)))
+      .pipe(
+        select(selectWorkspace),
+        filter(workspace => !!workspace)
+      )
       .subscribe(workspace => (this.workspace = workspace));
     this.subscriptions.add(sub1);
 
     const sub2 = this.store$
-      .select(selectCollectionByWorkspace)
-      .pipe(filter(collection => !isNullOrUndefined(collection)))
-      .subscribe(collection => {
-        this.collection = collection;
-      });
+      .pipe(
+        select(selectCollectionByWorkspace),
+        filter(collection => !!collection)
+      )
+      .subscribe(collection => (this.collection = collection));
     this.subscriptions.add(sub2);
 
-    this.subscriptions.add(
-      this.store$
-        .select(selectPreviousUrl)
-        .pipe(take(1))
-        .subscribe(url => (this.previousUrl = url))
-    );
-
-    this.store$.dispatch(new CollectionsAction.GetNames());
-    this.collectionNames$ = this.store$.pipe(
-      select(selectCollectionNames),
-      withLatestFrom(this.store$.pipe(select(selectCollectionByWorkspace))),
-      map(([names, collection]) => (names && names.filter(name => name !== collection.name)) || [])
-    );
+    this.store$
+      .pipe(
+        select(selectPreviousUrl),
+        take(1)
+      )
+      .subscribe(url => (this.previousUrl = url));
   }
 }
