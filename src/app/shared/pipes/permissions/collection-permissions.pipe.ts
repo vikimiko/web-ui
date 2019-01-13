@@ -20,19 +20,21 @@
 import {Injectable, Pipe, PipeTransform} from '@angular/core';
 
 import {select, Store} from '@ngrx/store';
-import {Observable, of} from 'rxjs';
+import {combineLatest, Observable, of} from 'rxjs';
 import {map, mergeMap} from 'rxjs/operators';
 import {AppState} from '../../../core/store/app.state';
 import {selectCurrentUserForWorkspace} from '../../../core/store/users/users.state';
 import {authorRolesInView, userRolesInResource} from '../../utils/resource.utils';
-import {UserModel} from '../../../core/store/users/user.model';
+import {User} from '../../../core/store/users/user';
 import {selectCurrentView} from '../../../core/store/views/views.state';
-import {ViewModel} from '../../../core/store/views/view.model';
+import {View} from '../../../core/store/views/view';
 import {selectAllLinkTypes} from '../../../core/store/link-types/link-types.state';
-import {CollectionModel} from '../../../core/store/collections/collection.model';
+import {Collection} from '../../../core/store/collections/collection';
 import {AllowedPermissions} from '../../../core/model/allowed-permissions';
 import {Role} from '../../../core/model/role';
 import {getAllCollectionIdsFromQuery} from '../../../core/store/navigation/query.util';
+import {selectWorkspaceModels} from '../../../core/store/common/common.selectors';
+import {selectCurrentUserIsManager} from '../../../core/store/common/permissions.selectors';
 
 @Pipe({
   name: 'collectionPermissions',
@@ -42,10 +44,30 @@ import {getAllCollectionIdsFromQuery} from '../../../core/store/navigation/query
   providedIn: 'root',
 })
 export class CollectionPermissionsPipe implements PipeTransform {
-  public constructor(private store: Store<AppState>) {}
+  public constructor(private store$: Store<AppState>) {}
 
-  public transform(collection: CollectionModel): Observable<AllowedPermissions> {
-    return this.store.select(selectCurrentUserForWorkspace).pipe(
+  public transform(collection: Collection): Observable<AllowedPermissions> {
+    return this.store$.pipe(
+      select(selectCurrentUserIsManager),
+      mergeMap(isManager => {
+        if (isManager) {
+          return of({
+            read: true,
+            write: true,
+            manage: true,
+            readWithView: true,
+            writeWithView: true,
+            manageWithView: true,
+          });
+        }
+        return this.checkCollectionPermission(collection);
+      })
+    );
+  }
+
+  private checkCollectionPermission(collection: Collection): Observable<AllowedPermissions> {
+    return this.store$.pipe(
+      select(selectCurrentUserForWorkspace),
       mergeMap(currentUser => {
         if (!currentUser || !collection) {
           return of({});
@@ -69,8 +91,9 @@ export class CollectionPermissionsPipe implements PipeTransform {
     );
   }
 
-  private userPermissionsInView(user: UserModel, collection: CollectionModel): Observable<AllowedPermissions> {
-    return this.store.select(selectCurrentView).pipe(
+  private userPermissionsInView(user: User, collection: Collection): Observable<AllowedPermissions> {
+    return this.store$.pipe(
+      select(selectCurrentView),
       mergeMap(view => {
         if (!view) {
           return of({});
@@ -96,13 +119,14 @@ export class CollectionPermissionsPipe implements PipeTransform {
     );
   }
 
-  private viewContainsCollection(view: ViewModel, collection: CollectionModel): Observable<boolean> {
+  private viewContainsCollection(view: View, collection: Collection): Observable<boolean> {
     return this.getViewCollectionIds(view).pipe(map(collectionIds => collectionIds.includes(collection.id)));
   }
 
-  private getViewCollectionIds(view: ViewModel): Observable<string[]> {
-    return this.store
-      .pipe(select(selectAllLinkTypes))
-      .pipe(map(linkTypes => getAllCollectionIdsFromQuery(view.query, linkTypes)));
+  private getViewCollectionIds(view: View): Observable<string[]> {
+    return this.store$.pipe(
+      select(selectAllLinkTypes),
+      map(linkTypes => getAllCollectionIdsFromQuery(view.query, linkTypes))
+    );
   }
 }

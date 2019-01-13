@@ -18,14 +18,14 @@
  */
 
 import {Injectable, Pipe, PipeTransform} from '@angular/core';
-import {Store} from '@ngrx/store';
+import {select, Store} from '@ngrx/store';
 import {Observable, of, combineLatest as observableCombineLatest} from 'rxjs';
 import {map, mergeMap} from 'rxjs/operators';
 import {AppState} from '../../../core/store/app.state';
-import {LinkTypeModel} from '../../../core/store/link-types/link-type.model';
+import {LinkType} from '../../../core/store/link-types/link.type';
 import {selectCollectionsByIds} from '../../../core/store/collections/collections.state';
 import {CollectionPermissionsPipe} from './collection-permissions.pipe';
-import {CollectionModel} from '../../../core/store/collections/collection.model';
+import {Collection} from '../../../core/store/collections/collection';
 import {AllowedPermissions} from '../../../core/model/allowed-permissions';
 
 @Pipe({
@@ -36,9 +36,9 @@ import {AllowedPermissions} from '../../../core/model/allowed-permissions';
   providedIn: 'root',
 })
 export class LinkTypePermissionsPipe implements PipeTransform {
-  public constructor(private store: Store<AppState>, private collectionsPermissionsPipe: CollectionPermissionsPipe) {}
+  public constructor(private store$: Store<AppState>, private collectionsPermissionsPipe: CollectionPermissionsPipe) {}
 
-  public transform(linkType: LinkTypeModel): Observable<AllowedPermissions> {
+  public transform(linkType: LinkType): Observable<AllowedPermissions> {
     if (!linkType) {
       return of({});
     }
@@ -68,9 +68,10 @@ export class LinkTypePermissionsPipe implements PipeTransform {
     );
   }
 
-  private getCollectionsForLinkType(linkType: LinkTypeModel): Observable<CollectionModel[]> {
-    return this.store
-      .select(selectCollectionsByIds(linkType.collectionIds))
-      .pipe(map(collections => collections.filter(collection => !!collection)));
+  private getCollectionsForLinkType(linkType: LinkType): Observable<Collection[]> {
+    return this.store$.pipe(
+      select(selectCollectionsByIds(linkType.collectionIds)),
+      map(collections => collections.filter(collection => !!collection))
+    );
   }
 }

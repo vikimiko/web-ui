@@ -17,34 +17,37 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {Component, OnDestroy, OnInit} from '@angular/core';
+import {ChangeDetectionStrategy, Component, OnDestroy, OnInit} from '@angular/core';
 import {Router} from '@angular/router';
 import {select, Store} from '@ngrx/store';
 import {I18n} from '@ngx-translate/i18n-polyfill';
-import {Observable, Subscription} from 'rxjs';
+import {BehaviorSubject, Observable, Subscription} from 'rxjs';
 
 import {filter, map, take} from 'rxjs/operators';
 import {ResourceType} from '../../core/model/resource-type';
 import {NotificationService} from '../../core/notifications/notification.service';
 import {AppState} from '../../core/store/app.state';
-import {CollectionModel} from '../../core/store/collections/collection.model';
+import {Collection} from '../../core/store/collections/collection';
 import {CollectionsAction} from '../../core/store/collections/collections.action';
 import {selectCollectionByWorkspace} from '../../core/store/collections/collections.state';
 import {NavigationAction} from '../../core/store/navigation/navigation.action';
 import {selectPreviousUrl, selectWorkspace} from '../../core/store/navigation/navigation.state';
 import {convertQueryModelToString} from '../../core/store/navigation/query.converter';
 import {SearchTab} from '../../core/store/navigation/search-tab';
-import {Workspace} from '../../core/store/navigation/workspace.model';
+import {Workspace} from '../../core/store/navigation/workspace';
 import {selectAllUsers} from '../../core/store/users/users.state';
 import {Perspective} from '../../view/perspectives/perspective';
 import {Query} from '../../core/store/navigation/query';
 
 @Component({
   templateUrl: './collection-settings.component.html',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CollectionSettingsComponent implements OnInit, OnDestroy {
-  public collection: CollectionModel;
+  public collection$ = new BehaviorSubject<Collection>(null);
   public userCount$: Observable<number>;
+
+  public readonly collectionType = ResourceType.Collection;
 
   private workspace: Workspace;
   private previousUrl: string;
@@ -67,30 +70,22 @@ export class CollectionSettingsComponent implements OnInit, OnDestroy {
   }
 
   public onNewName(name: string) {
-    const collection = {...this.collection, name};
+    const collection = {...this.collection$.getValue(), name};
     this.updateCollection(collection);
   }
 
   public onNewDescription(description: string) {
-    const collection = {...this.collection, description};
+    const collection = {...this.collection$.getValue(), description};
     this.updateCollection(collection);
   }
 
-  public onNewColor(color: string) {
-    const collection = {...this.collection, color};
+  public onNewColorOrIcon(event: {color: string; icon: string}) {
+    const {color, icon} = event;
+    const collection = {...this.collection$.getValue(), color, icon};
     this.updateCollection(collection);
   }
 
-  public onNewIcon(icon: string) {
-    const collection = {...this.collection, icon};
-    this.updateCollection(collection);
-  }
-
-  public getResourceType(): ResourceType {
-    return ResourceType.Collection;
-  }
-
-  private updateCollection(collection: CollectionModel) {
+  private updateCollection(collection: Collection) {
     this.store$.dispatch(new CollectionsAction.Update({collection}));
   }
 
@@ -108,8 +103,9 @@ export class CollectionSettingsComponent implements OnInit, OnDestroy {
   }
 
   public removeCollection(): void {
-    if (this.collection) {
-      this.store$.dispatch(new CollectionsAction.Delete({collectionId: this.collection.id}));
+    const collection = this.collection$.getValue();
+    if (collection) {
+      this.store$.dispatch(new CollectionsAction.Delete({collectionId: collection.id}));
       this.onBack();
     }
   }
@@ -136,7 +132,7 @@ export class CollectionSettingsComponent implements OnInit, OnDestroy {
 
   public onDocumentsClick() {
     this.router.navigate([this.workspacePath(), 'view', Perspective.Table], {
-      queryParams: {query: this.documentsQuery(this.collection.id)},
+      queryParams: {query: this.documentsQuery(this.collection$.getValue().id)},
     });
   }
 
@@ -159,7 +155,7 @@ export class CollectionSettingsComponent implements OnInit, OnDestroy {
         select(selectCollectionByWorkspace),
         filter(collection => !!collection)
       )
-      .subscribe(collection => (this.collection = collection));
+      .subscribe(collection => this.collection$.next(collection));
     this.subscriptions.add(sub2);
 
     this.store$

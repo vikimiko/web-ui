@@ -18,15 +18,14 @@
  */
 
 import {Component, EventEmitter, HostListener, Input, OnDestroy, OnInit, Output, ViewChild} from '@angular/core';
-import {CollectionModel} from '../../../core/store/collections/collection.model';
-import {Workspace} from '../../../core/store/navigation/workspace.model';
+import {Collection} from '../../../core/store/collections/collection';
+import {Workspace} from '../../../core/store/navigation/workspace';
 import {convertQueryModelToString} from '../../../core/store/navigation/query.converter';
 import {Subject, Subscription} from 'rxjs';
-import {isNullOrUndefined} from 'util';
 import {debounceTime, filter} from 'rxjs/operators';
-import {FormControl} from '@angular/forms';
 import {PostItCollectionNameComponent} from '../collection-name/post-it-collection-name.component';
 import {Query} from '../../../core/store/navigation/query';
+import {isNullOrUndefined} from '../../utils/common.utils';
 
 declare let $: any;
 
@@ -36,14 +35,14 @@ declare let $: any;
   styleUrls: ['./post-it-collection.component.scss'],
 })
 export class PostItCollectionComponent implements OnInit, OnDestroy {
-  @Input() public collection: CollectionModel;
+  @Input() public collection: Collection;
   @Input() public focused: boolean;
   @Input() public selected: boolean;
   @Input() public workspace: Workspace;
 
   @Output() public resize = new EventEmitter();
-  @Output() public update = new EventEmitter<CollectionModel>();
-  @Output() public create = new EventEmitter<CollectionModel>();
+  @Output() public update = new EventEmitter<Collection>();
+  @Output() public create = new EventEmitter<Collection>();
   @Output() public select = new EventEmitter();
   @Output() public unselect = new EventEmitter();
   @Output() public delete = new EventEmitter();
@@ -54,7 +53,6 @@ export class PostItCollectionComponent implements OnInit, OnDestroy {
   public collectionNameComponent: PostItCollectionNameComponent;
 
   public isPickerVisible: boolean = false;
-  public nameFormControl: FormControl;
   public newDropdownId = 'dropdown-' + Math.floor((1 + Math.random()) * 1000000000000).toString(16);
   private lastSyncedFavorite: boolean;
   private favoriteChange$ = new Subject<boolean>();

@@ -17,22 +17,22 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {Component, EventEmitter, Input, OnDestroy, OnInit, Output} from '@angular/core';
+import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnDestroy, OnInit, Output} from '@angular/core';
 
-import {UserModel} from '../../../core/store/users/user.model';
-import {Role} from '../../../core/model/role';
+import {User} from '../../../core/store/users/user';
 import {ResourceType} from '../../../core/model/resource-type';
 import {I18n} from '@ngx-translate/i18n-polyfill';
 import {Subject, Subscription} from 'rxjs';
 import {debounceTime, filter} from 'rxjs/operators';
 import {deepArrayEquals} from '../../utils/array.utils';
-import {isNullOrUndefined} from 'util';
 import {NotificationService} from '../../../core/notifications/notification.service';
+import {isNullOrUndefined} from '../../utils/common.utils';
 
 @Component({
   selector: '[user]',
   templateUrl: './user.component.html',
   styleUrls: ['./user.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class UserComponent implements OnInit, OnDestroy {
   @Input() public resourceType: ResourceType;
@@ -41,19 +41,15 @@ export class UserComponent implements OnInit, OnDestroy {
 
   @Input() public changeRoles: boolean;
 
-  @Input() public user: UserModel;
-
-  @Input() public expanded: boolean;
+  @Input() public user: User;
 
   @Input() public userRoles: string[];
 
   @Input() public groupRoles: string[];
 
-  @Output() public expandedChange = new EventEmitter();
+  @Output() public userUpdated = new EventEmitter<User>();
 
-  @Output() public userUpdated = new EventEmitter<UserModel>();
-
-  @Output() public userDeleted = new EventEmitter<UserModel>();
+  @Output() public userDeleted = new EventEmitter<User>();
 
   @Output() public rolesUpdate = new EventEmitter<{roles: string[]; onlyStore: boolean}>();
 
@@ -100,7 +96,7 @@ export class UserComponent implements OnInit, OnDestroy {
     this.userDeleted.emit(this.user);
   }
 
-  public hasRole(role: Role): boolean {
+  public hasRole(role: string): boolean {
     return this.userRoles.includes(role);
   }
 

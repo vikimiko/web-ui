@@ -17,22 +17,23 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {Component, EventEmitter, Input, Output} from '@angular/core';
+import {ChangeDetectionStrategy, Component, EventEmitter, Input, Output} from '@angular/core';
 
-import {CollectionModel} from '../../../../core/store/collections/collection.model';
+import {Collection} from '../../../../core/store/collections/collection';
 import {DocumentModel} from '../../../../core/store/documents/document.model';
 import {Query} from '../../../../core/store/navigation/query';
 
 @Component({
   selector: 'empty-post-its',
   templateUrl: './empty-post-its.component.html',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class EmptyPostItsComponent {
   @Input()
   public query: Query;
 
   @Input()
-  public collections: CollectionModel[];
+  public collections: Collection[];
 
   @Output()
   public createPostIt = new EventEmitter<DocumentModel>();

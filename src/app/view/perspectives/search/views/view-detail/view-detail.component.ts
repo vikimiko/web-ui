@@ -29,11 +29,12 @@ import {
 } from '@angular/core';
 
 import {perspectiveIconsMap} from '../../../perspective';
-import {ViewModel} from '../../../../../core/store/views/view.model';
+import {View} from '../../../../../core/store/views/view';
 import {QueryData} from '../../../../../shared/top-panel/search-box/query-data';
 import {QueryItem} from '../../../../../shared/top-panel/search-box/query-item/model/query-item';
 import {QueryItemsConverter} from '../../../../../shared/top-panel/search-box/query-item/query-items.converter';
 import {BehaviorSubject} from 'rxjs';
+import {ResourceType} from '../../../../../core/model/resource-type';
 
 @Component({
   selector: 'view-detail',
@@ -43,7 +44,7 @@ import {BehaviorSubject} from 'rxjs';
 })
 export class ViewDetailComponent implements OnInit, OnChanges {
   @Input()
-  public view: ViewModel;
+  public view: View;
 
   @Input()
   public queryData: QueryData;
@@ -55,6 +56,8 @@ export class ViewDetailComponent implements OnInit, OnChanges {
   public delete = new EventEmitter();
 
   public queryItems$ = new BehaviorSubject<QueryItem[]>([]);
+
+  public readonly viewType = ResourceType.View;
 
   public ngOnInit() {
     this.createQueryItems();

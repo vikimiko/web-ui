@@ -1,12 +1,11 @@
 <top-panel-wrapper>
-  <div class="col-12 col-lg-11 col-xl-10 mx-auto content" *ngIf="collection">
+  <div class="col-12 col-lg-11 col-xl-10 mx-auto content" *ngIf="collection$ | async as collection">
     <resource-header
       [resource]="collection"
-      [resourceType]="getResourceType()"
+      [resourceType]="collectionType"
       (back)="onBack()"
       (delete)="onDelete()"
-      (colorChange)="onNewColor($event)"
-      (iconChange)="onNewIcon($event)"
+      (colorIconChange)="onNewColorOrIcon($event)"
       (descriptionChange)="onNewDescription($event)"
       (nameChange)="onNewName($event)">
       <div class="d-flex flex-row text-primary flex-nowrap align-items-center mr-3"

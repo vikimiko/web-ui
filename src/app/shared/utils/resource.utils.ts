@@ -17,28 +17,40 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {ResourceModel} from '../../core/model/resource.model';
+import {Resource} from '../../core/model/resource';
 import {Role} from '../../core/model/role';
-import {UserModel} from '../../core/store/users/user.model';
-import {PermissionModel} from '../../core/store/permissions/permissions.model';
-import {ViewModel} from '../../core/store/views/view.model';
+import {User} from '../../core/store/users/user';
+import {Permission} from '../../core/store/permissions/permissions';
+import {View} from '../../core/store/views/view';
+import {Organization} from '../../core/store/organizations/organization';
+import {Project} from '../../core/store/projects/project';
 
-export function userHasManageRoleInResource(user: UserModel, resource: ResourceModel): boolean {
+export function userIsManagerInWorkspace(user: User, organization?: Organization, project?: Project): boolean {
+  return (
+    (organization && userHasManageRoleInResource(user, organization)) ||
+    (project && userHasManageRoleInResource(user, project))
+  );
+}
+
+export function userHasManageRoleInResource(user: User, resource: Resource): boolean {
   return userHasRoleInResource(user, resource, Role.Manage);
 }
 
-export function userHasRoleInResource(user: UserModel, resource: ResourceModel, role: string): boolean {
+export function userHasRoleInResource(user: User, resource: Resource, role: string): boolean {
   return userRolesInResource(user, resource).includes(role.toUpperCase());
 }
 
-export function userRolesInResource(user: UserModel, resource: ResourceModel): string[] {
+export function userRolesInResource(user: User, resource: Resource): string[] {
+  if (!user) {
+    return [];
+  }
   const permissions = (resource && resource.permissions) || {users: [], groups: []};
   const allUserRoles = userRoles(user, permissions.users);
   allUserRoles.push(...userGroupRoles(user, permissions.groups));
-  return allUserRoles;
+  return rolesWithTransitionRoles(allUserRoles);
 }
 
-function userRoles(user: UserModel, permissions: PermissionModel[]): string[] {
+function userRoles(user: User, permissions: Permission[]): string[] {
   return permissions.reduce((allRoles, permission) => {
     if (permission.id === user.id) {
       allRoles.push(...permission.roles);
@@ -47,7 +59,7 @@ function userRoles(user: UserModel, permissions: PermissionModel[]): string[] {
   }, []);
 }
 
-function userGroupRoles(user: UserModel, permissions: PermissionModel[]): string[] {
+function userGroupRoles(user: User, permissions: Permission[]): string[] {
   const userGroups = (user.groups || []).map(group => group.id);
 
   return permissions.reduce((allRoles, permission) => {
@@ -58,15 +70,31 @@ function userGroupRoles(user: UserModel, permissions: PermissionModel[]): string
   }, []);
 }
 
-export function authorHasRoleInView(view: ViewModel, collectionId: string, role: string): boolean {
+export function authorHasRoleInView(view: View, collectionId: string, role: string): boolean {
   return authorRolesInView(view, collectionId).includes(role.toUpperCase());
 }
 
-export function authorRolesInView(view: ViewModel, collectionId: string): string[] {
+export function authorRolesInView(view: View, collectionId: string): string[] {
   const authorRights = view.authorRights || {};
-  return authorRights[collectionId] || [];
+  return rolesWithTransitionRoles(authorRights[collectionId] || []);
 }
 
 export function generateCorrelationId(): string {
   return Date.now() + ':' + Math.random();
+}
+
+function rolesWithTransitionRoles(roles: string[]): string[] {
+  if (!roles || roles.length === 0) {
+    return [];
+  }
+  const rolesTransition = roles.reduce((arr, role) => [...arr, ...roleWithTransitionRoles(role)], []);
+  const rolesTransitionSet = new Set(rolesTransition);
+  return Array.from(rolesTransitionSet);
+}
+
+function roleWithTransitionRoles(role: string): string[] {
+  if (role === Role.Manage) {
+    return [Role.Read, Role.Write, Role.Comment, Role.Share, Role.Clone, Role.Manage];
+  }
+  return [role];
 }
